@@ -1,0 +1,13 @@
+[package]
+name = "rust-ethereum-monitor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+web3 = "0.17.0"
+tokio = "1.21.0"
+serde_json = "1.0"
+ticker = "0.1.1"
+
