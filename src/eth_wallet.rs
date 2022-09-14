@@ -1,14 +1,17 @@
 use crate::utils;
 use anyhow::Result;
-use secp256k1::{PublicKey, SecretKey}; 
+use bip0039::Mnemonic;
+use bitcoin::secp256k1::ffi::types::AlignedType;
+use bitcoin::util::bip32::{DerivationPath, ExtendedPrivKey, ExtendedPubKey};
 use secp256k1::rand::rngs::OsRng;
+use secp256k1::{PublicKey, SecretKey};
 use serde::{Deserialize, Serialize};
 use std::io::BufWriter;
 use std::str::FromStr;
 use std::{fs::OpenOptions, io::BufReader};
 use web3::{
-    transports,
     signing::keccak256,
+    transports,
     types::{Address, TransactionParameters, U256},
     Web3,
 };
@@ -16,6 +19,51 @@ use web3::{
 pub fn generate_keypair() -> (SecretKey, PublicKey) {
     let secp = secp256k1::Secp256k1::new();
     secp.generate_keypair(&mut OsRng)
+}
+
+pub fn generate_keypair_from_mnemonic_phrase(phrase: String) -> (SecretKey, PublicKey) {
+    // Generates an English mnemonic with 12 words randomly
+    //let mnemonic = Mnemonic::generate(Count::Words12);
+    let mnemonic = Mnemonic::from_phrase(phrase).unwrap();
+
+    // Generates the HD wallet seed from the mnemonic and the passphrase.
+    let seed = mnemonic.to_seed("");
+
+    // calculate root key from seed
+    let rootpriv = ExtendedPrivKey::new_master(bitcoin::Network::Bitcoin, &seed).unwrap();
+    println!("Root private key: {}", rootpriv);
+    println!(
+        "Root private key hex: {}",
+        hex::encode(rootpriv.to_priv().to_bytes())
+    );
+
+    // we need secp256k1 context for key derivation
+    let mut buf: Vec<AlignedType> = Vec::new();
+    buf.resize(
+        secp256k1::Secp256k1::preallocate_size(),
+        AlignedType::zeroed(),
+    );
+    let secp = secp256k1::Secp256k1::preallocated_new(buf.as_mut_slice()).unwrap();
+
+    let rootpub = ExtendedPubKey::from_priv(&secp, &rootpriv);
+    println!("Root public key:: {}", rootpub);
+
+    // derive child xpub
+    let path = DerivationPath::from_str("m/44'/60'/0'/0/0").unwrap();
+    let account0_address0_xprv = rootpriv.derive_priv(&secp, &path).unwrap();
+    println!("Account0_address0_xprv: {}", account0_address0_xprv);
+    println!(
+        "Account0_address0_xprv hex: {}",
+        hex::encode(account0_address0_xprv.to_priv().to_bytes())
+    );
+
+    let account0_address0_xpub = ExtendedPubKey::from_priv(&secp, &account0_address0_xprv);
+    println!("account0_address0_xpub: {}", account0_address0_xpub);
+
+    return (
+        account0_address0_xprv.private_key,
+        account0_address0_xpub.public_key,
+    );
 }
 
 pub fn public_key_address(public_key: &PublicKey) -> Address {
@@ -106,4 +154,3 @@ pub fn create_eth_transaction(to: Address, eth_value: f64) -> TransactionParamet
         ..Default::default()
     }
 }
-

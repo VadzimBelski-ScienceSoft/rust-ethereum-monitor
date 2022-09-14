@@ -6,24 +6,59 @@ use std::env;
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    let (secret_key, pub_key) = eth_wallet::generate_keypair();
 
-    println!("secret key: {}", &secret_key.display_secret());
-    println!("public key: {}", &pub_key.to_string());
-
-    let pub_address = eth_wallet::public_key_address(&pub_key);
-    println!("public address: {:?}", pub_address);
-
-    let crypto_wallet = eth_wallet::Wallet::new(&secret_key, &pub_key);
-    println!("crypto_wallet: {:?}", &crypto_wallet);
-
+    let endpoint = env::var("INFURA_WS")?;
+    let mnemonic_phrase = env::var("MNEMONIC_PHRASE")?;
     let wallet_file_path = "crypto_wallet.json";
-    crypto_wallet.save_to_file(wallet_file_path)?;
+
+    if endpoint.is_empty() {
+        return Err(anyhow::anyhow!("Missing endpoint in .env"));
+    }
+
+    eth_wallet::Wallet::from_file(wallet_file_path)
+        .map_err(|error| {
+            println!("In file {}, found error: {}", wallet_file_path, error);
+
+            if mnemonic_phrase.is_empty() {
+                let (secret_key, pub_key) = eth_wallet::generate_keypair();
+
+                println!("secret key: {}", &secret_key.display_secret());
+                println!("public key: {}", &pub_key.to_string());
+
+                let pub_address = eth_wallet::public_key_address(&pub_key);
+                println!("public address: {:?}", pub_address);
+
+                let crypto_wallet = eth_wallet::Wallet::new(&secret_key, &pub_key);
+                println!("crypto_wallet: {:?}", &crypto_wallet);
+
+                crypto_wallet
+                    .save_to_file(wallet_file_path)
+                    .map_err(|err| println!("{:?}", err))
+                    .ok();
+            } else {
+                let (secret_key, pub_key) =
+                    eth_wallet::generate_keypair_from_mnemonic_phrase(mnemonic_phrase);
+
+                println!("secret key: {}", &secret_key.display_secret());
+                println!("public key: {}", &pub_key.to_string());
+
+                let pub_address = eth_wallet::public_key_address(&pub_key);
+                println!("public address: {:?}", pub_address);
+
+                let crypto_wallet = eth_wallet::Wallet::new(&secret_key, &pub_key);
+                println!("crypto_wallet: {:?}", &crypto_wallet);
+
+                crypto_wallet
+                    .save_to_file(wallet_file_path)
+                    .map_err(|err| println!("{:?}", err))
+                    .ok();
+            }
+        })
+        .ok();
 
     let loaded_wallet = eth_wallet::Wallet::from_file(wallet_file_path)?;
     println!("loaded_wallet: {:?}", loaded_wallet);
 
-    let endpoint = env::var("INFURA_WS")?;
     let web3_con = eth_wallet::establish_web3_connection(&endpoint).await?;
 
     let block_number = web3_con.eth().block_number().await?;
