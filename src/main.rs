@@ -2,6 +2,10 @@ use anyhow::Result;
 mod eth_wallet;
 mod utils;
 use std::env;
+use ticker::Ticker;
+use web3::{
+    types::{ TransactionId, BlockId},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -73,6 +77,48 @@ async fn main() -> Result<()> {
     //     eth_wallet::sign_and_send(&web3_con, transaction, &loaded_wallet.get_secret_key()?).await?;
 
     // println!("transaction hash: {:?}", transact_hash);
+
+
+    let mut next_block_number = block_number;
+    let mut latest_scanned_block = web3::types::U64::from(0);
+
+    let ticker = Ticker::new(0.., std::time::Duration::from_secs(5));
+
+    for _ in ticker {
+ 
+        println!("\n\n\n------------ We are on the block {:?} ----------------", next_block_number);
+
+        let block = web3_con.eth().block(BlockId::from(next_block_number)).await.unwrap();
+        //println!("Block details are {:?}", block);
+
+        if block != None {
+
+            let block_object = block.as_ref().unwrap();
+        
+            if latest_scanned_block != block_object.number.unwrap() {
+                for tx in &block_object.transactions {
+                    println!("---Transaction {:?}---", tx);
+
+                    let tr = web3_con.eth().transaction(TransactionId::Hash(*tx)).await.unwrap();
+                    let transaction = tr.as_ref().unwrap();
+
+                    println!("Addres From: {:?}", transaction.from);
+                    println!("Addres to: {:?}", transaction.to);
+
+                    latest_scanned_block = block_object.number.unwrap();
+                }
+            }
+
+            let increment = 1 as u64;
+            next_block_number = block_object.number.unwrap() + increment;
+            println!("Setting next block as {:?}", next_block_number);
+            
+
+        }else{
+            println!("No more blocks");
+        }            
+    
+    }
 
     Ok(())
 }
