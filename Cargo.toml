@@ -6,12 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-web3 = "0.17.0"
-tokio = "1.21.0"
-serde_json = "1.0"
-ticker = "0.1.1"
+anyhow = "1.0"
+dotenv = "0.15.0"
 secp256k1 = { version = "0.24.0", features = ["std","rand-std","bitcoin_hashes","global-context"] }
-tiny-keccak = "2.0.2"
+tokio = { version= "1", features = ["full"] }
+web3 = "0.18.0"
+serde = { version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+tiny-keccak = { version = "2" }
+ticker = "0.1.1"
 bitcoin = "0.29.1"
 bip0039 = "0.10.1"
 hex = "0.4.3"
